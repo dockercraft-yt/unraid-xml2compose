@@ -33,6 +33,10 @@ und entfernt es nach der Ausführung wieder.
 ```powershell
 .\unraid-xml2compose.ps1 -InputFile "C:\unraid\templates\myapp.xml"
 ```
+### Einzeldatei konvertieren mit Ausgabedatei
+```powershell
+.\unraid-xml2compose.ps1 -InputFile .\my-example.xml -OutputFile my-example.yaml
+```
 
 ### Mit Labels
 ```powershell

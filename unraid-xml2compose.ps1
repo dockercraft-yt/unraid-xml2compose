@@ -5,9 +5,11 @@
     PowerShell-Port des Python-Skripts "undock-compose".
     Unterstützt Einzeldateien oder Ordner voller XML-Templates.
 .EXAMPLE
-    .\xml-2-compose.ps1 -InputFile "C:\templates\app.xml" -IncludeLabels $true
+    .\unraid-xml2compose.ps1 -InputFile "C:\templates\app.xml" -IncludeLabels $true
 .EXAMPLE
-    .\xml-2-compose.ps1 -InputFolder "C:\templates" -IncludeLabels $false
+    .\unraid-xml2compose.ps1 -InputFile "C:\templates\my-example.xml" -OutputFile "C:\templates\my-example.yaml"
+.EXAMPLE
+    .\unraid-xml2compose.ps1 -InputFolder "C:\templates" -IncludeLabels $false
 #>
 
 param(
@@ -28,7 +30,7 @@ $ErrorActionPreference = "Stop"
 $ModuleName = "powershell-yaml"
 $TempModuleInstalled = $false
 
-Write-Host "xml-2-compose PowerShell Edition" -ForegroundColor Cyan
+Write-Host "unraid-xml2compose PowerShell Edition" -ForegroundColor Cyan
 Write-Host "-----------------------------------`n"
 
 # --- Check & load YAML module ---

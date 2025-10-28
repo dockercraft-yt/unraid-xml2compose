@@ -1,0 +1,35 @@
+﻿networks:
+  bridge:
+    external: true
+    name: bridge
+services:
+  nginx:
+    image: lscr.io/linuxserver/nginx
+    privileged: false
+    environment:
+      HOST_HOSTNAME: nginx
+      HOST_OS: Unraid
+      TZ: UTC
+      PGID: "100"
+      HOST_CONTAINERNAME: nginx
+      PUID: "99"
+      NGINX_AUTORELOAD_WATCHLIST: ""
+      UMASK: "022"
+      NGINX_AUTORELOAD: ""
+    cpuset: ""
+    devices: []
+    ports:
+    - protocol: tcp
+      target: 80
+      published: 40080
+    - protocol: tcp
+      target: 443
+      published: 40443
+    volumes:
+    - /mnt/user/appdata/nginx:/config:rw
+    networks:
+    - bridge
+    command: ""
+    container_name: nginx
+    labels: {}
+
