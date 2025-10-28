@@ -117,7 +117,7 @@ Uninstall-Module powershell-yaml -AllVersions -Force -ErrorAction SilentlyContin
 ## Hinweis
 
 Das Script wurde als PowerShell-Port des Projekts
-[`undock-compose`](https://github.com/arifer/undock-compose) entwickelt
+[`undock-compose`](https://github.com/arifer612/undock-compose) entwickelt
 und vollständig in PowerShell nachgebaut.
 Die Umsetzung wurde erweitert, um unRAID-Spezifika zu berücksichtigen.
 
