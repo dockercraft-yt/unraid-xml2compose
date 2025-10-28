@@ -10,6 +10,13 @@
     .\unraid-xml2compose.ps1 -InputFile "C:\templates\my-example.xml" -OutputFile "C:\templates\my-example.yaml"
 .EXAMPLE
     .\unraid-xml2compose.ps1 -InputFolder "C:\templates" -IncludeLabels $false
+.PARAMETER InputFile
+
+.PARAMETER OutputFile
+
+.PARAMETER InputFolder
+
+.PARAMETER IncludeLabels
 #>
 
 param(
