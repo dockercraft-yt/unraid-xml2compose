@@ -49,7 +49,7 @@ function Get-Ports {
             }
         }
     }
-    return ,@($ports)  # ensure array (even if single or empty)
+    return @($ports)  # ensure array (even if single or empty)
 }
 
 function Get-Volumes {
@@ -70,7 +70,7 @@ function Get-Volumes {
             }
         }
     }
-    return ,@($volumes)  # ensure array
+    return @($volumes)  # ensure array
 }
 
 function Get-Devices {
@@ -91,7 +91,7 @@ function Get-Devices {
             }
         }
     }
-    return ,@($devices)  # ensure array
+    return @($devices)  # ensure array
 }
 
 
@@ -124,12 +124,55 @@ function Get-Configs {
 }
 
 function Get-UnraidEnvironment {
+    # Determine local timezone in IANA format for Docker-compatible TZ variable
+    $tz = Get-IanaTimeZone
+
     return @{
         HOST_OS = "Unraid"
-        TZ = "UTC"
+        TZ = $tz
         HOST_CONTAINERNAME = Get-Tag "Name"
         HOST_HOSTNAME = Get-Tag "Name"
     }
+}
+
+function Get-IanaTimeZone {
+    # Try to get the local Windows timezone id
+    try {
+        $winId = (Get-TimeZone).Id
+    } catch {
+        # If Get-TimeZone is unavailable or fails, fall back to environment TZ or UTC
+        if ($env:TZ) { return $env:TZ }
+        return 'UTC'
+    }
+
+    # Note: above hack builds $map incorrectly; instead create a real hashtable
+    $map = @{
+        'W. Europe Standard Time' = 'Europe/Berlin'
+        'Central Europe Standard Time' = 'Europe/Budapest'
+        'GMT Standard Time' = 'Europe/London'
+        'Eastern Standard Time' = 'America/New_York'
+        'Central Standard Time' = 'America/Chicago'
+        'Pacific Standard Time' = 'America/Los_Angeles'
+        'Mountain Standard Time' = 'America/Denver'
+        'Tokyo Standard Time' = 'Asia/Tokyo'
+        'China Standard Time' = 'Asia/Shanghai'
+        'India Standard Time' = 'Asia/Kolkata'
+        'AUS Eastern Standard Time' = 'Australia/Sydney'
+        'E. Australia Standard Time' = 'Australia/Brisbane'
+        'Hawaiian Standard Time' = 'Pacific/Honolulu'
+        'Alaskan Standard Time' = 'America/Anchorage'
+        'UTC' = 'UTC'
+    }
+
+    if ($map.ContainsKey($winId)) {
+        return $map[$winId]
+    }
+
+    # Last-resort: try to see if the Windows id already resembles an IANA name
+    if ($winId -match '/') { return $winId }
+
+    # Fallback to UTC when unknown
+    return 'UTC'
 }
 
 function Get-UnraidLabels {
@@ -170,17 +213,19 @@ function Get-Services {
 
     $svcName = Get-Tag "Name"
 
-    return @{
+    $n = Get-Tag "Network"
+
+    return @{ 
         $svcName = @{
             container_name = $svcName
             image = Get-Tag "Repository"
             privileged = -not ((Get-Tag "Privileged") -eq "false")
-            ports = $cfg.Ports
-            volumes = $cfg.Volumes
+            ports = @($cfg.Ports)
+            volumes = @($cfg.Volumes)
             environment = $env
             labels = $labels
-            devices = $cfg.Devices
-            networks = @(Get-Tag "Network")
+            devices = @($cfg.Devices)
+            networks = @($n)
             cpuset = Get-Tag "CPUset"
             command = Get-Tag "PostArgs"
         }
@@ -232,13 +277,24 @@ foreach ($xmlFile in $xmlFiles) {
         $OutputFile = Join-Path (Split-Path $InputFile) "docker-compose.yaml"
     }
 
-    $Compose = @{
+    # Use an ordered hashtable so that 'networks' is written after 'services' in the YAML
+    $Compose = [ordered]@{
         services = Get-Services
         networks = Get-Networks
     }
 
     try {
         $yaml = ConvertTo-Yaml $Compose
+
+        # Ensure service-level single-line 'networks: name' is converted to a YAML sequence
+        # e.g. '    networks: bridge' ->
+        #      '    networks:'\n'      - bridge'
+            $yaml = [regex]::Replace(
+                $yaml,
+                '(?m)^(\\s+)networks:\\s*(\\S.*)$',
+                '${1}networks:' + [Environment]::NewLine + '${1}  - ${2}'
+            )
+
         Set-Content -Path $OutputFile -Value $yaml -Encoding UTF8
         Write-Host "YAML file created: $OutputFile"
     } catch {

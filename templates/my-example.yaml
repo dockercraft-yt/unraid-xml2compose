@@ -1,15 +1,11 @@
-﻿networks:
-  bridge:
-    external: true
-    name: bridge
-services:
+﻿services:
   nginx:
     image: lscr.io/linuxserver/nginx
     privileged: false
     environment:
       HOST_OS: Unraid
       PGID: "100"
-      TZ: UTC
+      TZ: Europe/Berlin
       HOST_HOSTNAME: nginx
       HOST_CONTAINERNAME: nginx
       PUID: "99"
@@ -26,4 +22,8 @@ services:
     command: ""
     container_name: nginx
     labels: {}
+networks:
+  bridge:
+    external: true
+    name: bridge
 
