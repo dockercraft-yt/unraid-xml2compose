@@ -491,5 +491,5 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 assets/*
-
+*test*.yaml
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,visualstudio,visualstudiocode,hugo,powershell
