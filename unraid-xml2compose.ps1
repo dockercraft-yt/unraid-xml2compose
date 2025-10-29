@@ -1,24 +1,3 @@
-<#
-.SYNOPSIS
-    Konvertiert unRAID Docker XML Templates in Docker Compose YAML-Dateien.
-.DESCRIPTION
-    PowerShell-Port des Python-Skripts "undock-compose".
-    Unterstützt Einzeldateien oder Ordner voller XML-Templates.
-.EXAMPLE
-    .\unraid-xml2compose.ps1 -InputFile "C:\templates\app.xml" -IncludeLabels $true
-.EXAMPLE
-    .\unraid-xml2compose.ps1 -InputFile "C:\templates\my-example.xml" -OutputFile "C:\templates\my-example.yaml"
-.EXAMPLE
-    .\unraid-xml2compose.ps1 -InputFolder "C:\templates" -IncludeLabels $false
-.PARAMETER InputFile
-
-.PARAMETER OutputFile
-
-.PARAMETER InputFolder
-
-.PARAMETER IncludeLabels
-#>
-
 param(
     [Parameter(Mandatory = $false)]
     [string]$InputFile,
@@ -29,170 +8,168 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$OutputFile = "",
 
-    [bool]$IncludeLabels = $false
+    [switch]$IncludeLabels
 )
 
-# --- Initial Setup ---
-$ErrorActionPreference = "Stop"
-$ModuleName = "powershell-yaml"
-$TempModuleInstalled = $false
+# --- Prüfen ob YAML Modul vorhanden ist ---
+$moduleName = "powershell-yaml"
+$moduleInstalled = Get-Module -ListAvailable -Name $moduleName
 
-Write-Host "unraid-xml2compose PowerShell Edition" -ForegroundColor Cyan
-Write-Host "-----------------------------------`n"
-
-# --- Check & load YAML module ---
-if (-not (Get-Module -ListAvailable -Name $ModuleName)) {
-    Write-Host "Installing temporary module '$ModuleName'..." -ForegroundColor Yellow
+if (-not $moduleInstalled) {
     try {
-        Install-Module $ModuleName -Scope CurrentUser -Force -ErrorAction Stop
-        $TempModuleInstalled = $true
+        Write-Host "Installing $moduleName temporarily..."
+        Install-Module $moduleName -Force -Scope CurrentUser -ErrorAction Stop
     } catch {
-        Write-Error "Konnte Modul '$ModuleName' nicht installieren. Bitte manuell prüfen."
+        Write-Error "Failed to install required module '$moduleName'."
         exit 1
     }
 }
 
-Import-Module $ModuleName
+Import-Module $moduleName -ErrorAction Stop
 
-# --- XML Tag Helper ---
-function Get-Tag {
-    param([string]$Tag)
-    $node = $Xml.SelectSingleNode("//$Tag")
-    if ($null -ne $node -and $node.InnerText) {
-        return $node.InnerText.Trim()
-    }
-    return ""
+# --- Hilfsfunktionen ---
+
+function Get-Tag($tagName) {
+    return $Xml.Container.$tagName
 }
 
-# --- unRAID Template Helper ---
-function Get-UnraidLabels {
-    @{
-        "net.unraid.docker.registry"   = Get-Tag "Registry"
-        "net.unraid.docker.shell"      = Get-Tag "Shell"
-        "net.unraid.docker.support"    = Get-Tag "Support"
-        "net.unraid.docker.project"    = Get-Tag "Project"
-        "net.unraid.docker.overview"   = Get-Tag "Overview"
-        "net.unraid.docker.category"   = Get-Tag "Category"
-        "net.unraid.docker.icon"       = Get-Tag "Icon"
-        "net.unraid.docker.webui"      = Get-Tag "WebUI"
-        "net.unraid.docker.managed"    = "compose"
-        "net.unraid.docker.template"   = Get-Tag "TemplateURL"
-        "net.unraid.docker.installed"  = Get-Tag "DateInstalled"
-        "net.unraid.docker.donate.text"= Get-Tag "DonateText"
-        "net.unraid.docker.donate.link"= Get-Tag "DonateLink"
-        "net.unraid.docker.requires"   = Get-Tag "Requires"
+function Get-Ports {
+    $ports = @()
+    foreach ($config in $Xml.Container.Config) {
+        $type = if ($config.Type) { $config.Type.ToString() } else { "" }
+        if ($type -eq "Port") {
+            $published = ($config.'#text').ToString().Trim()
+            $target = if ($config.Target) { $config.Target.ToString().Trim() } else { "" }
+            $mode = if ($config.Mode) { $config.Mode.ToString().Trim() } else { "" }
+
+            if (-not [string]::IsNullOrWhiteSpace($published) -and -not [string]::IsNullOrWhiteSpace($target)) {
+                $entry = "${published}:${target}"
+                if ($mode -ieq "udp") { $entry += "/udp" }
+                $ports += $entry
+            }
+        }
+    }
+    return ,@($ports)  # ensure array (even if single or empty)
+}
+
+function Get-Volumes {
+    $volumes = @()
+    foreach ($config in $Xml.Container.Config) {
+        $type = if ($config.Type) { $config.Type.ToString() } else { "" }
+        if ($type -eq "Path") {
+            $source = if ($config.'#text') { $config.'#text'.ToString().Trim() } else { "" }
+            $target = if ($config.Target) { $config.Target.ToString().Trim() } else { "" }
+            $mode = if ($config.Mode) { $config.Mode.ToString().Trim() } else { "" }
+
+            if (-not [string]::IsNullOrWhiteSpace($source) -and -not [string]::IsNullOrWhiteSpace($target)) {
+                if (-not [string]::IsNullOrWhiteSpace($mode)) {
+                    $volumes += "${source}:${target}:${mode}"
+                } else {
+                    $volumes += "${source}:${target}"
+                }
+            }
+        }
+    }
+    return ,@($volumes)  # ensure array
+}
+
+function Get-Devices {
+    $devices = @()
+    foreach ($config in $Xml.Container.Config) {
+        $type = if ($config.Type) { $config.Type.ToString() } else { "" }
+        if ($type -in @("Device", "Devices")) {
+            $val = if ($config.'#text') { $config.'#text'.ToString().Trim() } else { "" }
+            $target = if ($config.Target) { $config.Target.ToString().Trim() } else { "" }
+            $mode = if ($config.Mode) { $config.Mode.ToString().Trim() } else { "" }
+
+            if (-not [string]::IsNullOrWhiteSpace($val) -and -not [string]::IsNullOrWhiteSpace($target)) {
+                if (-not [string]::IsNullOrWhiteSpace($mode)) {
+                    $devices += "${val}:${target}:${mode}"
+                } else {
+                    $devices += "${val}:${target}"
+                }
+            }
+        }
+    }
+    return ,@($devices)  # ensure array
+}
+
+
+function Get-Configs {
+    $env = @{}
+    $labels = @{}
+
+    foreach ($config in $Xml.Container.Config) {
+        switch ($config.Type) {
+            "Variable" { 
+                if ($config.Target -and $config.'#text') {
+                    $env[$config.Target] = $config.'#text'
+                }
+            }
+            "Label" {
+                if ($IncludeLabels -and $config.Target -and $config.'#text') {
+                    $labels[$config.Target] = $config.'#text'
+                }
+            }
+        }
+    }
+
+    return @{
+        Env = $env
+        Labels = $labels
+        Ports = Get-Ports
+        Volumes = Get-Volumes
+        Devices = Get-Devices
     }
 }
 
 function Get-UnraidEnvironment {
-    @{
-        "TZ"                 = "UTC"
-        "HOST_OS"            = "Unraid"
-        "HOST_HOSTNAME"      = Get-Tag "Name"
-        "HOST_CONTAINERNAME" = Get-Tag "Name"
+    return @{
+        HOST_OS = "Unraid"
+        TZ = "UTC"
+        HOST_CONTAINERNAME = Get-Tag "Name"
+        HOST_HOSTNAME = Get-Tag "Name"
     }
 }
 
-# --- Config Parser ---
-function Get-Configs {
-    $ports = @()
-    $volumes = @()
-    $devices = @()
-    $environment = @{}
+function Get-UnraidLabels {
+    if (-not $IncludeLabels) { return @{} }
     $labels = @{}
-
-    foreach ($config in $Xml.SelectNodes("//Config")) {
-        $attrs = $config.Attributes
-        $Type  = $attrs["Type"].Value
-        $Name  = $attrs["Name"].Value
-        $Target= $attrs["Target"].Value
-        $Default = $attrs["Default"].Value
-        $Mode  = if ($attrs["Mode"]) { $attrs["Mode"].Value } else { "" }
-        $Value = if ($config.InnerText) { $config.InnerText.Trim() } else { $Default }
-        $Value = $Value -replace '\$', '$$'
-        $header = "net.unraid.docker.config.$($Name -replace ' ', '_')"
-
-        switch ($Type) {
-            "Port" {
-                $ports += @{
-                    target = [int]$Target
-                    published = [int]$Value
-                    protocol = $Mode
-                }
-            }
-            "Path" {
-                $v = ("{0}:{1}" -f $Value, $Target)
-                if ($Mode) { $v += ":$Mode" }
-                $volumes += $v
-            }
-            "Device" {
-                $d = ("{0}:{1}" -f $Value, $Target)
-                if ($Mode) { $d += ":$Mode" }
-                $devices += $d
-            }
-            "Devices" {
-                $d = ("{0}:{1}" -f $Value, $Target)
-                if ($Mode) { $d += ":$Mode" }
-                $devices += $d
-            }
-            "Variable" {
-                $environment[$Target] = "$Value"
-            }
-            "Label" {
-                $labels[$Target] = "$Value"
-            }
-        }
-
-        if ($IncludeLabels) {
-            $labels["$header.default"] = $Default
-            $labels["$header.description"] = if ($attrs["Description"]) { $attrs["Description"].Value } else { "" }
-            $labels["$header.display"] = if ($attrs["Display"]) { $attrs["Display"].Value } else { "" }
-            $labels["$header.required"] = if ($attrs["Required"]) { $attrs["Required"].Value } else { "" }
-            $labels["$header.mask"] = if ($attrs["Mask"]) { $attrs["Mask"].Value } else { "" }
-        }
-    }
-
-    return [PSCustomObject]@{
-        Ports = $ports
-        Volumes = $volumes
-        Env = $environment
-        Labels = $labels
-        Devices = $devices
-    }
+    $webUI = Get-Tag "WebUI"
+    if ($webUI) { $labels["net.unraid.docker.webui"] = $webUI }
+    $support = Get-Tag "Support"
+    if ($support) { $labels["net.unraid.docker.support"] = $support }
+    return $labels
 }
 
-# --- Network / Service Parser ---
 function Get-Networks {
-    $net = Get-Tag "Network"
-    @{
-        $net = @{
+    $network = Get-Tag "Network"
+    return @{
+        $network = @{
             external = $true
-            name = $net
+            name = $network
         }
     }
 }
 
 function Get-Services {
     $cfg = Get-Configs
-
-    # Merge Labels sicher
     $labels = @{}
+
+    # Labels sicher zusammenführen
     foreach ($k in ($cfg.Labels.Keys + (Get-UnraidLabels).Keys | Select-Object -Unique)) {
         $v1 = $cfg.Labels[$k]
         $v2 = (Get-UnraidLabels)[$k]
         if ($v2) { $labels[$k] = $v2 } elseif ($v1) { $labels[$k] = $v1 }
     }
 
-    # Merge Environment sicher
+    # Environment sicher zusammenführen (überschreiben erlaubt)
     $env = [System.Collections.Hashtable]::new()
     foreach ($key in $cfg.Env.Keys) { $env[$key] = $cfg.Env[$key] }
     foreach ($key in (Get-UnraidEnvironment).Keys) { $env[$key] = (Get-UnraidEnvironment)[$key] }
 
-    if (-not $IncludeLabels) {
-        $labels.Clear()
-    }
-
     $svcName = Get-Tag "Name"
+
     return @{
         $svcName = @{
             container_name = $svcName
@@ -210,41 +187,41 @@ function Get-Services {
     }
 }
 
-# --- Datei-/Ordnerverarbeitung ---
+# --- Verarbeitung ---
 $xmlFiles = @()
 
 if ($InputFolder) {
     if (-not (Test-Path $InputFolder)) {
-        Write-Error "Der angegebene Ordner '$InputFolder' existiert nicht."
+        Write-Error "The folder '$InputFolder' does not exist."
         exit 1
     }
 
-    Write-Host "Suche XML-Dateien in: $InputFolder ..." -ForegroundColor Cyan
+    Write-Host "Searching for XML files in $InputFolder..."
     $xmlFiles = Get-ChildItem -Path $InputFolder -Filter *.xml -File
     if (-not $xmlFiles) {
-        Write-Warning "Keine XML-Dateien im Ordner '$InputFolder' gefunden."
+        Write-Warning "No XML files found in '$InputFolder'."
         exit 0
     }
 }
 elseif ($InputFile) {
     if (-not (Test-Path $InputFile)) {
-        Write-Error "Eingabedatei '$InputFile' wurde nicht gefunden."
+        Write-Error "Input file '$InputFile' not found."
         exit 1
     }
     $xmlFiles = ,(Get-Item $InputFile)
 }
 else {
-    Write-Error "Bitte entweder -InputFile oder -InputFolder angeben."
+    Write-Error "Please specify either -InputFile or -InputFolder."
     exit 1
 }
 
 foreach ($xmlFile in $xmlFiles) {
-    Write-Host "`nVerarbeite: $($xmlFile.Name)" -ForegroundColor Yellow
+    Write-Host "Processing: $($xmlFile.Name)"
 
     try {
         [xml]$Xml = Get-Content $xmlFile.FullName -Raw
     } catch {
-        Write-Warning "Konnte '$($xmlFile.Name)' nicht lesen: $($_.Exception.Message)"
+        Write-Warning "Could not read '$($xmlFile.Name)': $($_.Exception.Message)"
         continue
     }
 
@@ -263,23 +240,18 @@ foreach ($xmlFile in $xmlFiles) {
     try {
         $yaml = ConvertTo-Yaml $Compose
         Set-Content -Path $OutputFile -Value $yaml -Encoding UTF8
-        Write-Host "YAML-Datei erstellt: $OutputFile" -ForegroundColor Green
+        Write-Host "YAML file created: $OutputFile"
     } catch {
-        Write-Warning "Fehler beim Schreiben von '$($xmlFile.Name)': $($_.Exception.Message)"
+        Write-Warning "Error writing '$($xmlFile.Name)': $($_.Exception.Message)"
     }
 }
 
-Write-Host "`nVerarbeitung abgeschlossen.`n" -ForegroundColor Cyan
+Write-Host "All files processed."
 
-# --- Cleanup ---
-if ($TempModuleInstalled) {
-    Write-Host "Cleaning up temporary module '$ModuleName'..."
-    try {
-        Remove-Module $ModuleName -ErrorAction SilentlyContinue
-        Uninstall-Module $ModuleName -AllVersions -Force -ErrorAction SilentlyContinue
-    } catch {
-        Write-Warning "Modul konnte nicht vollständig entfernt werden."
-    }
+# --- Modul nach Benutzung entfernen ---
+try {
+    Remove-Module $moduleName -ErrorAction SilentlyContinue
+    Uninstall-Module $moduleName -AllVersions -Force -ErrorAction SilentlyContinue
+} catch {
+    Write-Warning "Failed to clean up module '$moduleName'."
 }
-
-Write-Host "Fertig."
