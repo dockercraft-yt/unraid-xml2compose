@@ -1,58 +1,61 @@
+##### Language selection:
+ [![English](/assets/img/flag_usa.png)](README.md) [![German](/assets/img/flag_germany.png)](README_de.md)
 # 🐋 unraid-xml2compose
 
-Konvertiert **unRAID Docker XML-Templates** automatisch in **Docker Compose YAML-Dateien** – direkt mit PowerShell.
-Ideal für Nutzer, die bestehende unRAID-Container in ein portables Compose-Setup überführen wollen.
+Automatically converts **unRAID Docker XML templates** into **Docker Compose YAML files** – directly with PowerShell.  
+Perfect for users who want to migrate existing unRAID containers into a portable Compose setup.
 
 ---
 
-## Funktionen
+## Features
 
-- Liest unRAID-XML-Templates und erzeugt Compose-Dateien im YAML-Format
-- Unterstützt **Einzeldateien** oder ganze Ordner voller XML-Vorlagen
-- Optionales Einfügen aller **unRAID-Label-Informationen** (`-IncludeLabels`)
-- Temporäre Nutzung von `powershell-yaml` mit automatischer Installation und Bereinigung
-- Kein Compose-Versionseintrag (kompatibel mit Docker Compose v2+)
-- Saubere Fehlerbehandlung und automatische Pfadverwaltung
-
----
-
-## Voraussetzungen
-
-- **PowerShell 5.1** (Windows) oder **PowerShell 7+** (Core, Linux/Mac)
-- Internetzugang (für temporäre Modulinstallation)
-
-Das Script installiert bei Bedarf automatisch das Modul
-[`powershell-yaml`](https://www.powershellgallery.com/packages/powershell-yaml)
-und entfernt es nach der Ausführung wieder.
+- Reads unRAID XML templates and generates Compose files in YAML format  
+- Supports **single files** or entire **folders** of XML templates  
+- Optionally includes all **unRAID label information** (`-IncludeLabels`)  
+- Temporary use of `powershell-yaml` with automatic installation and cleanup  
+- No Compose version entry (compatible with Docker Compose v2+)  
+- Clean error handling and automatic path management  
 
 ---
 
-## Verwendung
+## Requirements
 
-### Einzeldatei konvertieren
+- **PowerShell 5.1** (Windows) or **PowerShell 7+** (Core, Linux/Mac)  
+- Internet connection (for temporary module installation)
+
+The script automatically installs the  
+[`powershell-yaml`](https://www.powershellgallery.com/packages/powershell-yaml)  
+module if necessary and removes it after execution.
+
+---
+
+## Usage
+
+### Convert a single file
 ```powershell
 .\unraid-xml2compose.ps1 -InputFile "C:\unraid\templates\myapp.xml"
 ```
-### Einzeldatei konvertieren mit Ausgabedatei
+
+### Convert a single file with output file
 ```powershell
 .\unraid-xml2compose.ps1 -InputFile .\my-example.xml -OutputFile my-example.yaml
 ```
 
-### Mit Labels
+### With labels
 ```powershell
 .\unraid-xml2compose.ps1 -InputFile "C:\unraid\templates\myapp.xml" -IncludeLabels $true
 ```
 
-### Ordnerweise konvertieren
+### Convert an entire folder
 ```powershell
 .\unraid-xml2compose.ps1 -InputFolder "C:\unraid\templates"
 ```
 
-→ Für jede `*.xml` im Ordner wird automatisch eine gleichnamige `.yaml` erzeugt.
+→ For each `*.xml` file in the folder, a corresponding `.yaml` will be created automatically.
 
 ---
 
-## Beispiel Ausgangsdatei (`my-example.xml`)
+## Example input file (`my-example.xml`)
 
 ```xml
 <?xml version="1.0"?>
@@ -61,36 +64,23 @@ und entfernt es nach der Ausführung wieder.
   <Repository>lscr.io/linuxserver/nginx</Repository>
   <Registry>https://github.com/orgs/linuxserver/packages/container/package/nginx</Registry>
   <Network>bridge</Network>
-  <MyIP/>
-  <Shell>bash</Shell>
   <Privileged>false</Privileged>
   <Support>https://github.com/linuxserver/docker-nginx/issues/new/choose</Support>
   <Project>https://nginx.org/</Project>
   <Overview>Nginx(https://nginx.org/) is a simple webserver with php support. The config files reside in `/config` for easy user customization.</Overview>
-  <Category>Network:Web Tools:Utilities</Category>
   <WebUI>http://[IP]:[PORT:80]</WebUI>
   <TemplateURL>https://raw.githubusercontent.com/linuxserver/templates/main/unraid/nginx.xml</TemplateURL>
   <Icon>https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/nginx-logo.png</Icon>
-  <ExtraParams/>
-  <PostArgs/>
-  <CPUset/>
-  <DateInstalled>1761633250</DateInstalled>
-  <DonateText>Donations</DonateText>
-  <DonateLink>https://www.linuxserver.io/donate</DonateLink>
-  <Requires/>
-  <Config Name="WebUI" Target="80" Default="80" Mode="tcp" Description="http" Type="Port" Display="always" Required="true" Mask="false">40080</Config>
-  <Config Name="Port: 443" Target="443" Default="443" Mode="tcp" Description="https" Type="Port" Display="always" Required="true" Mask="false">40443</Config>
-  <Config Name="NGINX_AUTORELOAD" Target="NGINX_AUTORELOAD" Default="" Mode="{3}" Description="Set to `true` to enable automatic reloading of confs on change without stopping/restarting nginx. Your filesystem must support inotify. This functionality was previously offered via mod(https://github.com/linuxserver/docker-mods/tree/swag-auto-reload)." Type="Variable" Display="always" Required="false" Mask="false"/>
-  <Config Name="NGINX_AUTORELOAD_WATCHLIST" Target="NGINX_AUTORELOAD_WATCHLIST" Default="" Mode="{3}" Description="A pipe(https://en.wikipedia.org/wiki/Vertical_bar)-separated list of additional folders for auto reload to watch in addition to `/config/nginx`" Type="Variable" Display="always" Required="false" Mask="false"/>
-  <Config Name="Appdata" Target="/config" Default="/mnt/user/appdata/nginx" Mode="rw" Description="Persistent config files" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/nginx</Config>
-  <Config Name="PUID" Target="PUID" Default="99" Mode="{3}" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
-  <Config Name="PGID" Target="PGID" Default="100" Mode="{3}" Description="" Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
-  <Config Name="UMASK" Target="UMASK" Default="022" Mode="{3}" Description="" Type="Variable" Display="advanced" Required="false" Mask="false">022</Config>
-  <TailscaleStateDir/>
+  <Config Name="WebUI" Target="80" Default="80" Mode="tcp" Description="http" Type="Port">40080</Config>
+  <Config Name="Port: 443" Target="443" Default="443" Mode="tcp" Description="https" Type="Port">40443</Config>
+  <Config Name="Appdata" Target="/config" Default="/mnt/user/appdata/nginx" Mode="rw" Description="Persistent config files" Type="Path">/mnt/user/appdata/nginx</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Type="Variable">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Type="Variable">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="022" Type="Variable">022</Config>
 </Container>
 ```
 
-## Beispielausgabe (`my-example.yaml`)
+## Example output (`my-example.yaml`)
 
 ```yaml
 networks:
@@ -109,23 +99,20 @@ services:
       HOST_CONTAINERNAME: nginx
       PUID: "99"
       UMASK: "022"
-    cpuset: ""
-    devices: []
     ports:
-    - 40080:80
-    - 40443:443
+      - 40080:80
+      - 40443:443
     volumes:
-    - /mnt/user/appdata/nginx:/config:rw
+      - /mnt/user/appdata/nginx:/config:rw
     networks:
-    - bridge
-    command: ""
+      - bridge
     container_name: nginx
     labels: {}
 ```
 
 ---
 
-## Beispielverzeichnis
+## Example directory structure
 
 ```
 unraid-xml2compose/
@@ -137,7 +124,7 @@ unraid-xml2compose/
    └─ redis.xml
 ```
 
-Nach der Ausführung:
+After execution:
 ```
 templates/
 ├─ myapp.xml
@@ -149,9 +136,9 @@ templates/
 
 ---
 
-## Aufräumen
+## Cleanup
 
-Das Script deinstalliert das YAML-Modul nach Beendigung automatisch:
+The script automatically uninstalls the YAML module after completion:
 ```powershell
 Remove-Module powershell-yaml -ErrorAction SilentlyContinue
 Uninstall-Module powershell-yaml -AllVersions -Force -ErrorAction SilentlyContinue
@@ -159,16 +146,16 @@ Uninstall-Module powershell-yaml -AllVersions -Force -ErrorAction SilentlyContin
 
 ---
 
-## Hinweis
+## Note
 
-Das Script wurde als PowerShell-Port des Projekts
-[`undock-compose`](https://github.com/arifer612/undock-compose) entwickelt
-und vollständig in PowerShell nachgebaut.
-Die Umsetzung wurde erweitert, um unRAID-Spezifika zu berücksichtigen.
+This script was developed as a PowerShell port of  
+[`undock-compose`](https://github.com/arifer612/undock-compose)  
+and has been completely rewritten in PowerShell.  
+The implementation has been extended to handle unRAID-specific details.
 
 ---
 
-## Lizenz
+## License
 
-Dieses Projekt steht unter der **GNU GPL-3.0**.
-Nutzung, Änderung und Weitergabe sind erlaubt, solange der Quellcode offen bleibt.
+This project is licensed under the **GNU GPL-3.0**.  
+Use, modification, and redistribution are permitted as long as the source code remains open.
