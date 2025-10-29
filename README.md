@@ -102,24 +102,18 @@ services:
     image: lscr.io/linuxserver/nginx
     privileged: false
     environment:
-      HOST_HOSTNAME: nginx
       HOST_OS: Unraid
-      TZ: UTC
       PGID: "100"
+      TZ: UTC
+      HOST_HOSTNAME: nginx
       HOST_CONTAINERNAME: nginx
       PUID: "99"
-      NGINX_AUTORELOAD_WATCHLIST: ""
       UMASK: "022"
-      NGINX_AUTORELOAD: ""
     cpuset: ""
     devices: []
     ports:
-    - protocol: tcp
-      target: 80
-      published: 40080
-    - protocol: tcp
-      target: 443
-      published: 40443
+    - 40080:80
+    - 40443:443
     volumes:
     - /mnt/user/appdata/nginx:/config:rw
     networks:
