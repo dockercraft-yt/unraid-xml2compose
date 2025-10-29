@@ -1,5 +1,5 @@
 ##### Language selection:
- [![English](/assets/img/flag_usa.png)](README.md) [![German](/assets/img/flag_germany.png)](README_de.md)
+ [ENGLISH](README.md) [GERMAN](README_de.md)
 # 🐋 unraid-xml2compose
 
 Automatically converts **unRAID Docker XML templates** into **Docker Compose YAML files** – directly with PowerShell.  

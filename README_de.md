@@ -1,5 +1,5 @@
 ##### Sprachauswahl:
-[![Deutschesprache](/assets/img/flag_germany.png)](README_de.md) [![Englischesprache](/assets/img/flag_usa.png)](README.md)
+[Deutschesprache](README_de.md) [Englischesprache](README.md)
 
 # 🐋 unraid-xml2compose
 
