@@ -197,14 +197,16 @@ function Get-Networks {
 
 function Get-Services {
     $cfg = Get-Configs
-    $labels = @{}
 
     # Labels sicher zusammenführen
+    $labels = @{}
     foreach ($k in ($cfg.Labels.Keys + (Get-UnraidLabels).Keys | Select-Object -Unique)) {
         $v1 = $cfg.Labels[$k]
         $v2 = (Get-UnraidLabels)[$k]
         if ($v2) { $labels[$k] = $v2 } elseif ($v1) { $labels[$k] = $v1 }
     }
+
+    if (-not $IncludeLabels) { $labels.Clear() }
 
     # Environment sicher zusammenführen (überschreiben erlaubt)
     $env = [System.Collections.Hashtable]::new()
@@ -213,7 +215,18 @@ function Get-Services {
 
     $svcName = Get-Tag "Name"
 
-    $n = Get-Tag "Network"
+    # Force array types (even if empty) so YAML prints lists with "-" or "[]"
+    $portsArr = @($cfg.Ports)     # @() flacht mögliche Arrays korrekt ab
+    $volumesArr = @($cfg.Volumes)
+    $devicesArr = @($cfg.Devices)
+
+    # Build a flat networks array of strings (no nested arrays)
+    $networkName = (Get-Tag "Network")
+    if (-not [string]::IsNullOrWhiteSpace($networkName)) {
+        $networksArr = @($networkName)   # always a flat string array
+    } else {
+        $networksArr = @()               # empty array
+    }
 
     return @{
         $svcName = @{
@@ -226,7 +239,7 @@ function Get-Services {
             environment = $env
             labels = $labels
             devices = $devicesArr
-            networks = ,@(Get-Tag "Network")
+            networks = $networksArr
             cpuset = Get-Tag "CPUset"
             command = Get-Tag "PostArgs"
         }
