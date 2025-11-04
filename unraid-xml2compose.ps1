@@ -215,17 +215,18 @@ function Get-Services {
 
     $n = Get-Tag "Network"
 
-    return @{ 
+    return @{
         $svcName = @{
             container_name = $svcName
             image = Get-Tag "Repository"
             privileged = -not ((Get-Tag "Privileged") -eq "false")
-            ports = @($cfg.Ports)
-            volumes = @($cfg.Volumes)
+            restart = "unless-stopped"
+            ports = $portsArr
+            volumes = $volumesArr
             environment = $env
             labels = $labels
-            devices = @($cfg.Devices)
-            networks = @($n)
+            devices = $devicesArr
+            networks = ,@(Get-Tag "Network")
             cpuset = Get-Tag "CPUset"
             command = Get-Tag "PostArgs"
         }
@@ -306,8 +307,19 @@ Write-Host "All files processed."
 
 # --- Modul nach Benutzung entfernen ---
 try {
-    Remove-Module $moduleName -ErrorAction SilentlyContinue
-    Uninstall-Module $moduleName -AllVersions -Force -ErrorAction SilentlyContinue
+    # Modul entladen
+    if (Get-Module -Name $moduleName) {
+        Remove-Module $moduleName -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 200
+    }
+
+    # Prüfen, ob es wirklich entladen wurde
+    $stillLoaded = Get-Module -Name $moduleName
+    if (-not $stillLoaded) {
+        Uninstall-Module $moduleName -AllVersions -Force -ErrorAction SilentlyContinue
+    } else {
+        Write-Warning "Module '$moduleName' is still in use; skipping uninstall."
+    }
 } catch {
-    Write-Warning "Failed to clean up module '$moduleName'."
+    Write-Warning "Cleanup of module '$moduleName' failed: $($_.Exception.Message)"
 }
